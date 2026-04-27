@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Rescue</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root {
+    --bg: #fff8ef;
+    --panel: rgba(255, 255, 255, 0.9);
+    --surface: #ffffff;
+    --text: #1f2937;
+    --muted: #64748b;
+    --border: rgba(15, 23, 42, 0.08);
+    --danger: #d62828;
+    --danger-deep: #981b1e;
+    --danger-soft: rgba(214, 40, 40, 0.12);
+    --success: #15803d;
+    --success-soft: rgba(21, 128, 61, 0.14);
+    --shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(circle at top left, rgba(255, 181, 112, 0.35), transparent 26%),
+      radial-gradient(circle at top right, rgba(214, 40, 40, 0.18), transparent 28%),
+      linear-gradient(180deg, #fffdf9 0%, var(--bg) 100%);
+  }
+
+  .hidden { display: none !important; }
+
+  #landing,
+  #tracking {
+    min-height: 100vh;
+  }
+
+  #landing {
+    display: grid;
+    place-items: center;
+    padding: 28px;
+  }
+
+  .hero {
+    width: min(560px, 100%);
+    text-align: center;
+    padding: 42px 34px;
+    border-radius: 34px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .hero h1 {
+    margin: 20px 0 12px;
+    font-size: clamp(2.4rem, 6vw, 3.6rem);
+    line-height: 1.05;
+  }
+
+  .hero p {
+    margin: 0 auto;
+    max-width: 430px;
+    color: var(--muted);
+    line-height: 1.7;
+    font-size: 1rem;
+  }
+
+  .sos-button {
+    width: 220px;
+    height: 220px;
+    margin: 34px auto 22px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    color: #fff;
+    font-size: 3.1rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    background: radial-gradient(circle at 30% 30%, #ff9070, var(--danger) 62%, var(--danger-deep));
+    box-shadow:
+      0 0 0 18px rgba(214, 40, 40, 0.1),
+      0 22px 46px rgba(214, 40, 40, 0.28);
+    animation: pulse 1.9s infinite;
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 26px;
+  }
+
+  .tile {
+    padding: 14px;
+    border-radius: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    text-align: left;
+  }
+
+  .tile small {
+    display: block;
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+
+  .tile strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 1rem;
+  }
+
+  #tracking {
+    display: none;
+    position: relative;
+  }
+
+  #map {
+    position: absolute;
+    inset: 0;
+  }
+
+  .topbar,
+  .side-panel {
+    position: absolute;
+    z-index: 1000;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow);
+  }
+
+  .topbar {
+    top: 24px;
+    left: 24px;
+    width: min(380px, calc(100vw - 48px));
+    border-radius: 24px;
+    padding: 18px;
+  }
+
+  .topbar-badge {
+    display: inline-flex;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 0.82rem;
+    font-weight: 800;
+  }
+
+  .topbar h2,
+  .topbar p,
+  .side-panel h3,
+  .side-panel p {
+    margin: 0;
+  }
+
+  .topbar h2 {
+    margin-top: 14px;
+    font-size: 1.55rem;
+  }
+
+  .topbar p {
+    margin-top: 10px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .metric {
+    padding: 12px;
+    border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .metric small {
+    display: block;
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+
+  .metric strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 1rem;
+  }
+
+  .side-panel {
+    right: 24px;
+    bottom: 24px;
+    width: min(400px, calc(100vw - 48px));
+    border-radius: 28px;
+    padding: 22px;
+  }
+
+  .driver-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .driver {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .avatar {
+    width: 62px;
+    height: 62px;
+    display: grid;
+    place-items: center;
+    border-radius: 20px;
+    color: #fff;
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, var(--danger), #ff7b54);
+  }
+
+  .badge {
+    padding: 9px 13px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    background: var(--success-soft);
+    color: var(--success);
+  }
+
+  .status-box,
+  .route-box,
+  .notify-box {
+    margin-top: 16px;
+    padding: 15px;
+    border-radius: 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .status-box small,
+  .route-box small,
+  .notify-box small {
+    display: block;
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+
+  .status-box strong,
+  .route-box strong,
+  .notify-box strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 1rem;
+  }
+
+  .notify-box ul {
+    margin: 12px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+  }
+
+  .notify-box li + li {
+    margin-top: 8px;
+  }
+
+  .route-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .call-btn,
+  .msg-btn {
+    border: none;
+    border-radius: 16px;
+    padding: 14px 16px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .call-btn {
+    flex: 1;
+    color: #fff;
+    background: linear-gradient(135deg, var(--success), #22c55e);
+  }
+
+  .msg-btn {
+    width: 120px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .toast {
+    position: absolute;
+    left: 50%;
+    bottom: 28px;
+    transform: translateX(-50%) translateY(24px);
+    z-index: 1200;
+    min-width: 280px;
+    max-width: min(92vw, 420px);
+    padding: 14px 18px;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.92);
+    color: #fff;
+    text-align: center;
+    font-weight: 700;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .ambulance-marker {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.95rem;
+    border-radius: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.94);
+    background: linear-gradient(135deg, var(--danger), #ff7b54);
+    box-shadow: 0 8px 18px rgba(214, 40, 40, 0.24);
+  }
+
+  .hospital-marker {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    border: 3px solid #fff;
+    box-shadow: 0 8px 18px rgba(22, 163, 74, 0.32);
+  }
+
+  .hospital-marker::before,
+  .hospital-marker::after {
+    content: "";
+    position: absolute;
+    background: #fff;
+    border-radius: 999px;
+  }
+
+  .hospital-marker::before {
+    width: 14px;
+    height: 4px;
+  }
+
+  .hospital-marker::after {
+    width: 4px;
+    height: 14px;
+  }
+
+  .hospital-marker.active {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.18), 0 10px 20px rgba(22, 163, 74, 0.34);
+  }
+
+  #callScreen {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(8px);
+  }
+
+  .call-card {
+    width: min(360px, calc(100vw - 32px));
+    padding: 30px 24px;
+    text-align: center;
+    border-radius: 28px;
+    color: #fff;
+    background: rgba(15, 23, 42, 0.92);
+    box-shadow: 0 30px 60px rgba(15, 23, 42, 0.4);
+  }
+
+  .call-avatar {
+    width: 92px;
+    height: 92px;
+    margin: 0 auto 18px;
+    display: grid;
+    place-items: center;
+    border-radius: 24px;
+    font-size: 2.4rem;
+    background: linear-gradient(135deg, var(--danger), #ff7b54);
+  }
+
+  .call-card h3,
+  .call-card p {
+    margin: 0;
+  }
+
+  .call-card p {
+    margin-top: 8px;
+    color: rgba(255, 255, 255, 0.75);
+    line-height: 1.6;
+  }
+
+  .call-time {
+    margin: 18px 0 22px;
+    font-size: 2rem;
+    font-weight: 800;
+    color: #86efac;
+  }
+
+  .hangup-btn {
+    width: 74px;
+    height: 74px;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    color: #fff;
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, #ff5d5d, #d83434);
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    70% { transform: scale(1.04); box-shadow: 0 0 0 24px rgba(214, 40, 40, 0), 0 22px 46px rgba(214, 40, 40, 0.28); }
+    100% { transform: scale(1); }
+  }
+
+  @media (max-width: 820px) {
+    .hero-grid,
+    .metrics,
+    .route-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .topbar,
+    .side-panel {
+      width: calc(100vw - 32px);
+    }
+
+    .topbar {
+      top: 16px;
+      left: 16px;
+    }
+
+    .side-panel {
+      right: 16px;
+      bottom: 16px;
+    }
+
+    .sos-button {
+      width: 188px;
+      height: 188px;
+      font-size: 2.6rem;
+    }
+  }
+</style>
+</head>
+<body>
+  <section id="landing">
+    <div class="hero">
+      <div class="eyebrow">Emergency Rescue Ready</div>
+      <h1>One tap to dispatch the nearest ambulance.</h1>
+      <p>Press the SOS button to assign the closest unit, open live tracking, and follow the ambulance on the road to your location and then to the hospital.</p>
+      <button class="sos-button" id="sosButton" type="button">SOS</button>
+      <div class="hero-grid">
+        <div class="tile">
+          <small>Dispatch</small>
+          <strong>Nearest ambulance auto-assigned</strong>
+        </div>
+        <div class="tile">
+          <small>Tracking</small>
+          <strong>Live map route updates</strong>
+        </div>
+        <div class="tile">
+          <small>Transfer</small>
+          <strong>Hospital drop after pickup</strong>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tracking">
+    <div id="map"></div>
+
+    <div class="topbar">
+      <div class="topbar-badge">Rescue Mission Active</div>
+      <h2 id="phaseTitle">Preparing dispatch</h2>
+      <p id="phaseDescription">The system is locating the nearest ambulance and checking the fastest road route.</p>
+      <div class="metrics">
+        <div class="metric">
+          <small>Status</small>
+          <strong id="miniStatus">Ready</strong>
+        </div>
+        <div class="metric">
+          <small>ETA</small>
+          <strong id="etaValue">Calculating</strong>
+        </div>
+        <div class="metric">
+          <small>Destination</small>
+          <strong id="destinationValue">Pending</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <div class="driver-row">
+        <div class="driver">
+          <div class="avatar">&#128657;</div>
+          <div>
+            <h3>Assigned Ambulance</h3>
+            <p id="ambulanceName">Unit not assigned yet</p>
+            <p id="driverName">Driver will appear after assignment</p>
+          </div>
+        </div>
+        <div class="badge" id="routeBadge">Standby</div>
+      </div>
+
+      <div class="status-box">
+        <small>Live Update</small>
+        <strong id="statusText">Waiting for SOS trigger</strong>
+      </div>
+
+      <div class="notify-box">
+        <small>Dispatch Notifications</small>
+        <strong id="notifyTitle">Nearby ambulances will appear here</strong>
+        <ul id="notifyList">
+          <li>Press SOS to notify nearby ambulances.</li>
+        </ul>
+      </div>
+
+      <div class="route-grid">
+        <div class="route-box">
+          <small>Pickup</small>
+          <strong>Patient Location</strong>
+          <p>Bengaluru central zone beacon detected.</p>
+        </div>
+        <div class="route-box">
+          <small>Hospital</small>
+          <strong id="hospitalLabel">City Emergency Hospital</strong>
+          <p id="hospitalText">Hospital transfer starts after pickup.</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="call-btn" id="callButton" type="button">Call Driver</button>
+        <button class="msg-btn" id="messageButton" type="button">Message</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </section>
+
+  <div id="callScreen">
+    <div class="call-card">
+      <div class="call-avatar">&#128657;</div>
+      <h3 id="callTitle">Assigned Ambulance</h3>
+      <p>The driver line is active. Stay calm while the ambulance reaches you.</p>
+      <div class="call-time" id="callTime">00:00</div>
+      <button class="hangup-btn" id="hangupButton" type="button">X</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const userLoc = [12.9716, 77.5946];
+    const hospitals = [
+      { name: "City Emergency Hospital", loc: [12.9780, 77.6050] },
+      { name: "Apollo Care Center", loc: [12.9655, 77.6015] },
+      { name: "Metro Trauma Hospital", loc: [12.9835, 77.5878] },
+      { name: "Greenlife Medical", loc: [12.9588, 77.5908] }
+    ];
+
+    const ambulanceData = [
+      { name: "Ambulance A1", driver: "Arjun Singh", loc: [12.9900, 77.6100] },
+      { name: "Ambulance B2", driver: "Neha Verma", loc: [12.9810, 77.5790] },
+      { name: "Ambulance C3", driver: "Rahul Das", loc: [12.9600, 77.6000] }
+    ];
+
+    let map;
+    let patientMarker;
+    let hospitalMarkers = [];
+    let routeLine;
+    let activeAmbulance = null;
+    let activeHospital = null;
+    let missionStarted = false;
+    let dispatchLocked = false;
+    let toastTimer;
+    let callTimer;
+    let callStartedAt = 0;
+
+    const ambulanceIcon = L.divIcon({
+      className: "ambulance-marker",
+      html: "&#128657;",
+      iconSize: [34, 34]
+    });
+
+    const hospitalIcon = L.divIcon({
+      className: "hospital-marker",
+      html: "",
+      iconSize: [28, 28]
+    });
+
+    function setStatus(title, description, status, eta = "Calculating", destination = "Pending", badge = "Standby") {
+      document.getElementById("phaseTitle").textContent = title;
+      document.getElementById("phaseDescription").textContent = description;
+      document.getElementById("statusText").textContent = status;
+      document.getElementById("miniStatus").textContent = status;
+      document.getElementById("etaValue").textContent = eta;
+      document.getElementById("destinationValue").textContent = destination;
+      document.getElementById("routeBadge").textContent = badge;
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+    }
+
+    function updateNotifyPanel(title, items) {
+      document.getElementById("notifyTitle").textContent = title;
+      const list = document.getElementById("notifyList");
+      list.innerHTML = "";
+
+      items.forEach(item => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        list.appendChild(li);
+      });
+    }
+
+    function formatClock(ms) {
+      const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+      const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+      const seconds = String(totalSeconds % 60).padStart(2, "0");
+      return `${minutes}:${seconds}`;
+    }
+
+    function toggleCall(show) {
+      const callScreen = document.getElementById("callScreen");
+
+      if (!show) {
+        callScreen.style.display = "none";
+        clearInterval(callTimer);
+        return;
+      }
+
+      const driverName = activeAmbulance ? activeAmbulance.driver : "Assigned ambulance";
+      document.getElementById("callTitle").textContent = driverName;
+      document.getElementById("callTime").textContent = "00:00";
+      callScreen.style.display = "flex";
+      clearInterval(callTimer);
+      callStartedAt = Date.now();
+      callTimer = setInterval(() => {
+        document.getElementById("callTime").textContent = formatClock(Date.now() - callStartedAt);
+      }, 1000);
+    }
+
+    function initMap() {
+      map = L.map("map", { zoomControl: true }).setView(userLoc, 13);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap"
+      }).addTo(map);
+
+      patientMarker = L.marker(userLoc).addTo(map).bindPopup("Patient location");
+      hospitalMarkers = hospitals.map(item => {
+        item.marker = L.marker(item.loc, { icon: hospitalIcon }).addTo(map).bindPopup(item.name);
+        return item.marker;
+      });
+
+      ambulanceData.forEach(unit => {
+        unit.marker = L.marker(unit.loc, { icon: ambulanceIcon }).addTo(map).bindPopup(unit.name);
+      });
+    }
+
+    function distance(a, b) {
+      const lat1 = Array.isArray(a) ? a[0] : a.lat;
+      const lng1 = Array.isArray(a) ? a[1] : a.lng;
+      const lat2 = Array.isArray(b) ? b[0] : b.lat;
+      const lng2 = Array.isArray(b) ? b[1] : b.lng;
+      return Math.hypot(lat1 - lat2, lng1 - lng2);
+    }
+
+    function getNearestAmbulance() {
+      return getSortedAmbulancesByDistance(userLoc)[0];
+    }
+
+    function getSortedAmbulancesByDistance(target) {
+      return [...ambulanceData]
+        .map(unit => ({
+          unit,
+          dist: distance(unit.marker.getLatLng(), target)
+        }))
+        .sort((a, b) => a.dist - b.dist)
+        .map(item => item.unit);
+    }
+
+    function getNearestHospital(fromLoc) {
+      let nearest = hospitals[0];
+      let min = Infinity;
+
+      hospitals.forEach(item => {
+        const d = distance(fromLoc, item.loc);
+        if (d < min) {
+          min = d;
+          nearest = item;
+        }
+      });
+
+      return nearest;
+    }
+
+    function highlightHospital(selectedHospital) {
+      hospitals.forEach(item => {
+        const el = item.marker.getElement();
+        if (el) {
+          el.classList.toggle("active", item === selectedHospital);
+        }
+      });
+    }
+
+    function simulateDispatchDelay(ms) {
+      return new Promise(resolve => {
+        const startedAt = performance.now();
+
+        function tick(now) {
+          const remaining = Math.max(ms - (now - startedAt), 0);
+          document.getElementById("etaValue").textContent = `${Math.ceil(remaining / 1000)}s`;
+
+          if (remaining > 0) {
+            requestAnimationFrame(tick);
+          } else {
+            resolve();
+          }
+        }
+
+        requestAnimationFrame(tick);
+      });
+    }
+
+    async function getRoute(start, end) {
+      try {
+        const startLatLng = Array.isArray(start) ? { lat: start[0], lng: start[1] } : start;
+        const endLatLng = Array.isArray(end) ? { lat: end[0], lng: end[1] } : end;
+        const url = `https://router.project-osrm.org/route/v1/driving/${startLatLng.lng},${startLatLng.lat};${endLatLng.lng},${endLatLng.lat}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data.routes || !data.routes.length) return null;
+
+        return data.routes[0].geometry.coordinates.map(point => [point[1], point[0]]);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function drawRoute(path, color) {
+      if (routeLine) {
+        map.removeLayer(routeLine);
+      }
+
+      routeLine = L.polyline(path, {
+        color,
+        weight: 6,
+        opacity: 0.85
+      }).addTo(map);
+
+      map.fitBounds(routeLine.getBounds(), { padding: [60, 60] });
+    }
+
+    function formatEta(ms) {
+      return formatClock(ms);
+    }
+
+    function moveSmooth(marker, path, totalDuration = 16000, trafficProfile = "mixed") {
+      return new Promise(resolve => {
+        if (!path || path.length < 2) {
+          resolve();
+          return;
+        }
+
+        const segments = [];
+        let totalDistance = 0;
+
+        for (let i = 0; i < path.length - 1; i += 1) {
+          const segmentDistance = distance(path[i], path[i + 1]);
+          segments.push({
+            start: path[i],
+            end: path[i + 1],
+            length: segmentDistance
+          });
+          totalDistance += segmentDistance;
+        }
+
+        const trafficLabels = {
+          clear: "Clear road",
+          mixed: "Moderate traffic",
+          heavy: "Heavy traffic"
+        };
+
+        function getTrafficFactor(progress) {
+          const wave = (Math.sin(progress * 10.5) + Math.sin(progress * 22)) * 0.5;
+
+          if (trafficProfile === "heavy") {
+            return 0.42 + ((wave + 1) / 2) * 0.38;
+          }
+
+          if (trafficProfile === "clear") {
+            return 0.78 + ((wave + 1) / 2) * 0.28;
+          }
+
+          return 0.55 + ((wave + 1) / 2) * 0.32;
+        }
+
+        let virtualProgress = 0;
+        let lastTime = performance.now();
+
+        function animate(now) {
+          const delta = now - lastTime;
+          lastTime = now;
+          const speedFactor = getTrafficFactor(virtualProgress);
+          virtualProgress = Math.min(virtualProgress + (delta / totalDuration) * speedFactor, 1);
+          let coveredDistance = totalDistance * virtualProgress;
+          let currentSegment = segments[0];
+
+          for (let i = 0; i < segments.length; i += 1) {
+            if (coveredDistance <= segments[i].length || i === segments.length - 1) {
+              currentSegment = segments[i];
+              break;
+            }
+            coveredDistance -= segments[i].length;
+          }
+
+          const ratio = currentSegment.length === 0 ? 1 : coveredDistance / currentSegment.length;
+          const lat = currentSegment.start[0] + (currentSegment.end[0] - currentSegment.start[0]) * ratio;
+          const lng = currentSegment.start[1] + (currentSegment.end[1] - currentSegment.start[1]) * ratio;
+          marker.setLatLng([lat, lng]);
+
+          const remaining = Math.max((1 - virtualProgress) * totalDuration, 0);
+          document.getElementById("etaValue").textContent = virtualProgress === 1 ? "Arrived" : formatEta(remaining);
+          document.getElementById("statusText").textContent = `${trafficLabels[trafficProfile]} - adjusting speed through traffic`;
+          map.panTo([lat, lng], { animate: false });
+
+          if (virtualProgress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            resolve();
+          }
+        }
+
+        requestAnimationFrame(animate);
+      });
+    }
+
+    async function runMission() {
+      if (missionStarted || dispatchLocked) return;
+      dispatchLocked = true;
+      missionStarted = true;
+
+      document.getElementById("landing").classList.add("hidden");
+      document.getElementById("tracking").style.display = "block";
+
+      if (!map) initMap();
+
+      setStatus(
+        "Finding nearest ambulance",
+        "Checking nearby units and selecting the closest ambulance for the dispatch.",
+        "Notifying nearby ambulances...",
+        "5-10s",
+        "Pickup",
+        "Alerting"
+      );
+
+      const nearbyAmbulances = getSortedAmbulancesByDistance(userLoc);
+      updateNotifyPanel(
+        "Nearby ambulances notified",
+        nearbyAmbulances.map((unit, index) => {
+          const etaEstimate = 3 + index * 2;
+          return `${unit.name} notified. Driver ${unit.driver} responded in queue. Estimated reach ${etaEstimate}-${etaEstimate + 2} min.`;
+        })
+      );
+
+      const dispatchDelay = 5000 + Math.floor(Math.random() * 5001);
+      await simulateDispatchDelay(dispatchDelay);
+
+      const assigned = getNearestAmbulance();
+      activeAmbulance = assigned;
+      activeHospital = null;
+      document.getElementById("ambulanceName").textContent = assigned.name;
+      document.getElementById("driverName").textContent = `Driver: ${assigned.driver}`;
+      updateNotifyPanel(
+        `${assigned.name} assigned successfully`,
+        nearbyAmbulances.map(unit =>
+          unit === assigned
+            ? `${unit.name} accepted dispatch and is moving toward the patient.`
+            : `${unit.name} was notified but kept on standby.`
+        )
+      );
+      assigned.marker.bindPopup(`${assigned.name} assigned`).openPopup();
+      showToast(`${assigned.name} assigned with driver ${assigned.driver}.`);
+
+      const pickupPath = await getRoute(assigned.marker.getLatLng(), userLoc);
+      if (!pickupPath) {
+        setStatus(
+          "Route unavailable",
+          "The road service could not return a driving path right now.",
+          "Network or route error",
+          "Unavailable",
+          "Pickup",
+          "Error"
+        );
+        dispatchLocked = false;
+        return;
+      }
+
+      drawRoute(pickupPath, "#d62828");
+      setStatus(
+        "Ambulance on the way",
+        "The assigned ambulance is following the road route to reach the patient location.",
+        "Ambulance moving to pickup with traffic-aware speed",
+        "Calculating",
+        "Pickup",
+        "En Route"
+      );
+      await moveSmooth(assigned.marker, pickupPath, 52000, "heavy");
+
+      patientMarker.openPopup();
+      showToast("Ambulance has reached the patient.");
+      activeHospital = getNearestHospital(assigned.marker.getLatLng());
+      highlightHospital(activeHospital);
+      setStatus(
+        "Patient picked up",
+        "The patient is onboard. The ambulance is now being rerouted to the nearest hospital.",
+        "Pickup complete",
+        "Re-routing",
+        activeHospital.name,
+        "On Board"
+      );
+
+      const hospitalPath = await getRoute(assigned.marker.getLatLng(), activeHospital.loc);
+      if (!hospitalPath) {
+        setStatus(
+          "Hospital route unavailable",
+          "Pickup is complete, but the hospital road route could not be loaded.",
+          "Route error after pickup",
+          "Unavailable",
+          activeHospital.name,
+          "Warning"
+        );
+        dispatchLocked = false;
+        return;
+      }
+
+      drawRoute(hospitalPath, "#15803d");
+      document.getElementById("hospitalLabel").textContent = activeHospital.name;
+      document.getElementById("hospitalText").textContent = "Nearest hospital selected automatically and highlighted on the map.";
+      setStatus(
+        "Heading to hospital",
+        "The ambulance is following the road route toward the nearest available hospital.",
+        "Transport in progress with changing traffic speed",
+        "Calculating",
+        activeHospital.name,
+        "Stable"
+      );
+      await moveSmooth(assigned.marker, hospitalPath, 58000, "mixed");
+
+      activeHospital.marker.openPopup();
+      setStatus(
+        "Arrived at hospital",
+        "The ambulance has completed the route and reached the hospital entrance.",
+        "Mission complete",
+        "Arrived",
+        activeHospital.name,
+        "Complete"
+      );
+      showToast(`Patient delivered to ${activeHospital.name}.`);
+      dispatchLocked = false;
+    }
+
+    document.getElementById("sosButton").addEventListener("click", runMission);
+    document.getElementById("callButton").addEventListener("click", () => {
+      if (!missionStarted) {
+        showToast("Trigger SOS first to assign an ambulance.");
+        return;
+      }
+      if (!activeAmbulance) {
+        showToast("Nearby ambulances are being notified. Please wait for assignment.");
+        return;
+      }
+      toggleCall(true);
+    });
+    document.getElementById("hangupButton").addEventListener("click", () => toggleCall(false));
+    document.getElementById("messageButton").addEventListener("click", () => {
+      if (!missionStarted) {
+        showToast("Assign an ambulance first to send a message.");
+        return;
+      }
+      if (!activeAmbulance) {
+        showToast("Dispatch is in progress. Messaging will unlock after ambulance assignment.");
+        return;
+      }
+      showToast(`Message sent to ${activeAmbulance ? activeAmbulance.name : "the driver"}.`);
+    });
+  </script>
+</body>
+</html>
